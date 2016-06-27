@@ -21931,29 +21931,23 @@
 	
 	var _tone2 = _interopRequireDefault(_tone);
 	
-	var _random = __webpack_require__(192);
+	var _constants = __webpack_require__(192);
 	
-	var _random2 = _interopRequireDefault(_random);
-	
-	var _constants = __webpack_require__(205);
+	var _util = __webpack_require__(193);
 	
 	var _store = __webpack_require__(207);
 	
 	var _store2 = _interopRequireDefault(_store);
 	
-	var _actions = __webpack_require__(210);
+	var _actions = __webpack_require__(211);
 	
-	var _controlBankContainer = __webpack_require__(211);
+	var _manual = __webpack_require__(212);
 	
-	var _controlBankContainer2 = _interopRequireDefault(_controlBankContainer);
+	var _manual2 = _interopRequireDefault(_manual);
 	
-	var _faderBankContainer = __webpack_require__(274);
+	var _globalTransportBarContainer = __webpack_require__(284);
 	
-	var _faderBankContainer2 = _interopRequireDefault(_faderBankContainer);
-	
-	var _transportControlBarContainer = __webpack_require__(277);
-	
-	var _transportControlBarContainer2 = _interopRequireDefault(_transportControlBarContainer);
+	var _globalTransportBarContainer2 = _interopRequireDefault(_globalTransportBarContainer);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
@@ -21965,39 +21959,51 @@
 	
 	function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 	
-	var voice = new _tone2.default.MonoSynth({
+	var voices = [new _tone2.default.MonoSynth({
 	  "oscillator": {
 	    "type": "triangle"
 	  }
-	}).toMaster();
-	
-	var getActivePosition = function getActivePosition(tonePosition, timeSignature, randomMode, reverseMode) {
-	  if (randomMode) {
-	    return (0, _random2.default)(0, _constants.STEP_COUNT - 1);
-	  } else {
-	    var position = getPositionComponents(tonePosition),
-	        nextPosition = position.bar * timeSignature + position.beat;
-	    if (reverseMode) {
-	      var prevPosition = nextPosition - 2; // -1 will stay on the same beat, so we need -2 to actually play in reverse
-	      return prevPosition < 0 ? _constants.STEP_COUNT + prevPosition : prevPosition;
-	    } else {
-	      return nextPosition;
-	    }
+	}).toMaster(), new _tone2.default.MonoSynth({
+	  "oscillator": {
+	    "type": "square"
 	  }
+	}).toMaster()];
+	
+	var initializeTone = function initializeTone() {
+	  _tone2.default.Transport.timeSignature = _constants.METER;
+	  _tone2.default.Transport.loopEnd = _constants.BARS + ":0:0";
+	  _tone2.default.Transport.loop = true;
 	};
 	
-	var getPositionComponents = function getPositionComponents(position) {
-	  var components = position.split(":");
-	  return {
-	    bar: parseInt(components[0], 10),
-	    beat: parseInt(components[1], 10)
-	  };
+	var triggerVoice = function triggerVoice(voice, pitchPosition, pulseWidth, time) {
+	  var frequency = pitchPosition * _constants.FREQUENCY_DEPTH + _constants.MIN_FREQUENCY;
+	  voice.triggerAttackRelease(frequency, "0:" + pulseWidth + ":0", time);
 	};
 	
-	var transportTimeFromPosition = function transportTimeFromPosition(position) {
-	  var bar = parseInt(position / _constants.METER, 10),
-	      beat = position % _constants.METER;
-	  return bar + ":" + beat + ":0";
+	var onToneFrame = function onToneFrame(time) {
+	  var state = _store2.default.getState(),
+	      tonePosition = _tone2.default.Transport.position,
+	      timeSignature = _tone2.default.Transport.timeSignature;
+	
+	  voices.forEach(function (voice, i) {
+	    var pulseWidth = state.pulseWidth[i],
+	        reverseMode = state.reverseMode[i],
+	        randomMode = state.randomMode[i],
+	        mutedPositions = state.mutedPositions[i],
+	        pitchPositions = state.positionValues[i],
+	        volume = state.volume[i],
+	        activePosition = (0, _util.getActivePosition)(tonePosition, timeSignature, randomMode, reverseMode),
+	        isMuted = mutedPositions[activePosition],
+	        pitchPosition = pitchPositions[activePosition];
+	
+	    voice.volume.value = (0, _util.relativeVolumeToDecibels)(volume);
+	
+	    if (!isMuted) {
+	      triggerVoice(voice, pitchPosition, pulseWidth, time);
+	    }
+	
+	    _store2.default.dispatch((0, _actions.setActivePosition)(i, activePosition));
+	  });
 	};
 	
 	var App = function (_React$Component) {
@@ -22012,27 +22018,9 @@
 	  _createClass(App, [{
 	    key: "componentDidMount",
 	    value: function componentDidMount() {
-	      _tone2.default.Transport.timeSignature = _constants.METER;
-	      _tone2.default.Transport.loopEnd = _constants.BARS + ":0:0";
-	      _tone2.default.Transport.loop = true;
 	      _store2.default.dispatch((0, _actions.setTempo)(_constants.INITIAL_TEMPO));
-	
-	      _tone2.default.Transport.scheduleRepeat(function (time) {
-	        var state = _store2.default.getState(),
-	            pulseWidth = state.pulseWidth,
-	            tonePosition = _tone2.default.Transport.position,
-	            timeSignature = _tone2.default.Transport.timeSignature,
-	            activePosition = getActivePosition(tonePosition, timeSignature, state.randomMode, state.reverseMode),
-	            pitchValue = state.positionValues[activePosition],
-	            frequency = pitchValue * _constants.FREQUENCY_DEPTH + _constants.MIN_FREQUENCY;
-	        _tone2.default.Transport.position = transportTimeFromPosition(activePosition);
-	        _store2.default.dispatch((0, _actions.setActivePosition)(activePosition));
-	
-	        if (!state.mutedPositions[activePosition]) {
-	          voice.triggerAttackRelease(frequency, "0:" + pulseWidth + ":0", time);
-	        }
-	      }, "4n");
-	
+	      initializeTone();
+	      _tone2.default.Transport.scheduleRepeat(onToneFrame, "4n");
 	      _tone2.default.Transport.start();
 	    }
 	  }, {
@@ -22051,10 +22039,8 @@
 	      },
 	          mainStyle = {
 	        display: "flex",
-	        flexDirection: "row",
-	        alignContent: "stretch",
-	        height: "100%",
-	        maxHeight: 360
+	        flexDirection: "column",
+	        alignContent: "stretch"
 	      };
 	      return React.createElement(
 	        "div",
@@ -22090,13 +22076,14 @@
 	          React.createElement(
 	            "div",
 	            { style: { flex: 1 } },
-	            React.createElement(_faderBankContainer2.default, null),
-	            React.createElement(_transportControlBarContainer2.default, null)
+	            (0, _util.loop)(_constants.MANUAL_COUNT, function (i) {
+	              return React.createElement(_manual2.default, { key: i, index: i });
+	            })
 	          ),
 	          React.createElement(
 	            "div",
 	            null,
-	            React.createElement(_controlBankContainer2.default, null)
+	            React.createElement(_globalTransportBarContainer2.default, null)
 	          )
 	        )
 	      );
@@ -41798,11 +41785,120 @@
 
 /***/ },
 /* 192 */
+/***/ function(module, exports) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	var MANUAL_COUNT = exports.MANUAL_COUNT = 2;
+	var STEP_COUNT = exports.STEP_COUNT = 8;
+	var METER = exports.METER = 4;
+	var BARS = exports.BARS = STEP_COUNT / METER;
+	
+	// measured in dBs
+	var INITIAL_VOLUME = exports.INITIAL_VOLUME = 0.5;
+	var MAX_VOLUME = exports.MAX_VOLUME = 1.0;
+	var MIN_VOLUME = exports.MIN_VOLUME = 0.0;
+	
+	var MIN_PULSE_WIDTH = exports.MIN_PULSE_WIDTH = 0.025;
+	var MAX_PULSE_WIDTH = exports.MAX_PULSE_WIDTH = 1.0;
+	var INITIAL_PULSE_WIDTH = exports.INITIAL_PULSE_WIDTH = (MAX_PULSE_WIDTH - MIN_PULSE_WIDTH) / 2 + MIN_PULSE_WIDTH;
+	
+	// measured in bpm
+	var INITIAL_TEMPO = exports.INITIAL_TEMPO = 480;
+	var MAX_TEMPO = exports.MAX_TEMPO = 840;
+	var MIN_TEMPO = exports.MIN_TEMPO = 120;
+	var TEMPO_DEPTH = exports.TEMPO_DEPTH = MAX_TEMPO - MIN_TEMPO;
+	var MIN_FREQUENCY = exports.MIN_FREQUENCY = 55.0;
+	var MAX_FREQUENCY = exports.MAX_FREQUENCY = 880.0;
+	var FREQUENCY_DEPTH = exports.FREQUENCY_DEPTH = MAX_FREQUENCY - MIN_FREQUENCY;
+
+/***/ },
+/* 193 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var baseRandom = __webpack_require__(193),
-	    isIterateeCall = __webpack_require__(194),
-	    toNumber = __webpack_require__(203);
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports.getActivePosition = exports.transportTimeFromPosition = exports.getPositionComponents = exports.relativeVolumeToDecibels = exports.updateValueAtIndex = exports.sampleFunction = exports.loop = undefined;
+	
+	var _random = __webpack_require__(194);
+	
+	var _random2 = _interopRequireDefault(_random);
+	
+	var _constants = __webpack_require__(192);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	var loop = exports.loop = function loop(times, fn) {
+	  var result = [];
+	  for (var i = 0; i < times; i++) {
+	    result[i] = fn(i);
+	  }
+	  return result;
+	};
+	
+	var sampleFunction = exports.sampleFunction = function sampleFunction(f, min, max, sampleCount) {
+	  var depth = max - min,
+	      resolution = depth / (sampleCount - 1);
+	
+	  return Array(sampleCount).fill(0).map(function (_, i) {
+	    var x = min + i * resolution;
+	    return f(x);
+	  });
+	};
+	
+	var updateValueAtIndex = exports.updateValueAtIndex = function updateValueAtIndex(array, index, value) {
+	  var newArray = array.slice(); // clone
+	  newArray[index] = value;
+	  return newArray;
+	};
+	
+	var VOLUME_MULTIPLIER = 10;
+	var relativeVolumeToDecibels = exports.relativeVolumeToDecibels = function relativeVolumeToDecibels(volume) {
+	  return VOLUME_MULTIPLIER * Math.log(volume);
+	};
+	
+	var getPositionComponents = exports.getPositionComponents = function getPositionComponents(position) {
+	  var components = position.split(":");
+	  return {
+	    bar: parseInt(components[0], 10),
+	    beat: parseInt(components[1], 10)
+	  };
+	};
+	
+	var transportTimeFromPosition = exports.transportTimeFromPosition = function transportTimeFromPosition(position) {
+	  var bar = parseInt(position / _constants.METER, 10),
+	      beat = position % _constants.METER;
+	  return bar + ":" + beat + ":0";
+	};
+	
+	var getActivePosition = exports.getActivePosition = function getActivePosition(tonePosition, timeSignature, randomMode, reverseMode) {
+	  if (randomMode) {
+	    return (0, _random2.default)(0, _constants.STEP_COUNT - 1);
+	  } else {
+	    var position = getPositionComponents(tonePosition),
+	        nextPosition = position.bar * timeSignature + position.beat;
+	    if (reverseMode) {
+	      var prevPosition = nextPosition - 2; // -1 will stay on the same beat, so we need -2 to actually play in reverse
+	      return prevPosition < 0 ? _constants.STEP_COUNT + prevPosition : prevPosition;
+	    } else {
+	      return nextPosition;
+	    }
+	  }
+	};
+
+/***/ },
+/* 194 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var baseRandom = __webpack_require__(195),
+	    isIterateeCall = __webpack_require__(196),
+	    toNumber = __webpack_require__(205);
 	
 	/** Built-in method references without a dependency on `root`. */
 	var freeParseFloat = parseFloat;
@@ -41885,7 +41981,7 @@
 
 
 /***/ },
-/* 193 */
+/* 195 */
 /***/ function(module, exports) {
 
 	/* Built-in method references for those with the same name as other `lodash` methods. */
@@ -41909,13 +42005,13 @@
 
 
 /***/ },
-/* 194 */
+/* 196 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var eq = __webpack_require__(195),
-	    isArrayLike = __webpack_require__(196),
-	    isIndex = __webpack_require__(202),
-	    isObject = __webpack_require__(200);
+	var eq = __webpack_require__(197),
+	    isArrayLike = __webpack_require__(198),
+	    isIndex = __webpack_require__(204),
+	    isObject = __webpack_require__(202);
 	
 	/**
 	 * Checks if the given arguments are from an iteratee call.
@@ -41945,7 +42041,7 @@
 
 
 /***/ },
-/* 195 */
+/* 197 */
 /***/ function(module, exports) {
 
 	/**
@@ -41988,12 +42084,12 @@
 
 
 /***/ },
-/* 196 */
+/* 198 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var getLength = __webpack_require__(197),
-	    isFunction = __webpack_require__(199),
-	    isLength = __webpack_require__(201);
+	var getLength = __webpack_require__(199),
+	    isFunction = __webpack_require__(201),
+	    isLength = __webpack_require__(203);
 	
 	/**
 	 * Checks if `value` is array-like. A value is considered array-like if it's
@@ -42028,10 +42124,10 @@
 
 
 /***/ },
-/* 197 */
+/* 199 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var baseProperty = __webpack_require__(198);
+	var baseProperty = __webpack_require__(200);
 	
 	/**
 	 * Gets the "length" property value of `object`.
@@ -42050,7 +42146,7 @@
 
 
 /***/ },
-/* 198 */
+/* 200 */
 /***/ function(module, exports) {
 
 	/**
@@ -42070,10 +42166,10 @@
 
 
 /***/ },
-/* 199 */
+/* 201 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var isObject = __webpack_require__(200);
+	var isObject = __webpack_require__(202);
 	
 	/** `Object#toString` result references. */
 	var funcTag = '[object Function]',
@@ -42119,7 +42215,7 @@
 
 
 /***/ },
-/* 200 */
+/* 202 */
 /***/ function(module, exports) {
 
 	/**
@@ -42156,7 +42252,7 @@
 
 
 /***/ },
-/* 201 */
+/* 203 */
 /***/ function(module, exports) {
 
 	/** Used as references for various `Number` constants. */
@@ -42198,7 +42294,7 @@
 
 
 /***/ },
-/* 202 */
+/* 204 */
 /***/ function(module, exports) {
 
 	/** Used as references for various `Number` constants. */
@@ -42226,12 +42322,12 @@
 
 
 /***/ },
-/* 203 */
+/* 205 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var isFunction = __webpack_require__(199),
-	    isObject = __webpack_require__(200),
-	    isSymbol = __webpack_require__(204);
+	var isFunction = __webpack_require__(201),
+	    isObject = __webpack_require__(202),
+	    isSymbol = __webpack_require__(206);
 	
 	/** Used as references for various `Number` constants. */
 	var NAN = 0 / 0;
@@ -42299,7 +42395,7 @@
 
 
 /***/ },
-/* 204 */
+/* 206 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var isObjectLike = __webpack_require__(180);
@@ -42344,7 +42440,7 @@
 
 
 /***/ },
-/* 205 */
+/* 207 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -42352,51 +42448,25 @@
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
-	exports.FREQUENCY_DEPTH = exports.MAX_FREQUENCY = exports.MIN_FREQUENCY = exports.TEMPO_DEPTH = exports.MIN_TEMPO = exports.MAX_TEMPO = exports.INITIAL_TEMPO = exports.INITIAL_PULSE_WIDTH = exports.MAX_PULSE_WIDTH = exports.MIN_PULSE_WIDTH = exports.MIN_VOLUME = exports.MAX_VOLUME = exports.INITIAL_VOLUME = exports.DEFAULT_FADER_VALUES = exports.BARS = exports.METER = exports.STEP_COUNT = undefined;
 	
-	var _generators = __webpack_require__(206);
+	var _redux = __webpack_require__(175);
 	
-	var _generators2 = _interopRequireDefault(_generators);
+	var _reducers = __webpack_require__(208);
+	
+	var _reducers2 = _interopRequireDefault(_reducers);
+	
+	var _defaultState = __webpack_require__(209);
+	
+	var _defaultState2 = _interopRequireDefault(_defaultState);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
-	var sampleFunction = function sampleFunction(f, min, max, sampleCount) {
-	  var depth = max - min,
-	      resolution = depth / (sampleCount - 1);
+	var store = (0, _redux.createStore)(_reducers2.default, _defaultState2.default);
 	
-	  return Array(sampleCount).fill(0).map(function (_, i) {
-	    var x = min + i * resolution;
-	    return f(x);
-	  });
-	};
-	
-	var STEP_COUNT = exports.STEP_COUNT = 8;
-	var METER = exports.METER = 4;
-	var BARS = exports.BARS = STEP_COUNT / METER;
-	
-	var generator = _generators2.default[1];
-	var DEFAULT_FADER_VALUES = exports.DEFAULT_FADER_VALUES = sampleFunction(generator.f, generator.min, generator.max, STEP_COUNT);
-	
-	// measured in dBs
-	var INITIAL_VOLUME = exports.INITIAL_VOLUME = 0.5;
-	var MAX_VOLUME = exports.MAX_VOLUME = 1.0;
-	var MIN_VOLUME = exports.MIN_VOLUME = 0.0;
-	
-	var MIN_PULSE_WIDTH = exports.MIN_PULSE_WIDTH = 0.025;
-	var MAX_PULSE_WIDTH = exports.MAX_PULSE_WIDTH = 1.0;
-	var INITIAL_PULSE_WIDTH = exports.INITIAL_PULSE_WIDTH = (MAX_PULSE_WIDTH - MIN_PULSE_WIDTH) / 2 + MIN_PULSE_WIDTH;
-	
-	// measured in bpm
-	var INITIAL_TEMPO = exports.INITIAL_TEMPO = 480;
-	var MAX_TEMPO = exports.MAX_TEMPO = 840;
-	var MIN_TEMPO = exports.MIN_TEMPO = 120;
-	var TEMPO_DEPTH = exports.TEMPO_DEPTH = MAX_TEMPO - MIN_TEMPO;
-	var MIN_FREQUENCY = exports.MIN_FREQUENCY = 55.0;
-	var MAX_FREQUENCY = exports.MAX_FREQUENCY = 880.0;
-	var FREQUENCY_DEPTH = exports.FREQUENCY_DEPTH = MAX_FREQUENCY - MIN_FREQUENCY;
+	exports.default = store;
 
 /***/ },
-/* 206 */
+/* 208 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -42405,7 +42475,176 @@
 	  value: true
 	});
 	
-	var _random = __webpack_require__(192);
+	var _redux = __webpack_require__(175);
+	
+	var _util = __webpack_require__(193);
+	
+	var _defaultState = __webpack_require__(209);
+	
+	var _defaultState2 = _interopRequireDefault(_defaultState);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	var standardReducer = function standardReducer(type, state, action) {
+	  switch (action.type) {
+	    case type:
+	      return action.value;
+	    default:
+	      return state;
+	  }
+	};
+	
+	var listReducer = function listReducer(type, state, action) {
+	  switch (action.type) {
+	    case type:
+	      var index = action.index;
+	      var value = action.value;
+	
+	      return (0, _util.updateValueAtIndex)(state, index, value);
+	    default:
+	      return state;
+	  }
+	};
+	
+	var nestedListReducer = function nestedListReducer(type, state, action) {
+	  switch (action.type) {
+	    case type:
+	      var index = action.index;
+	      var position = action.position;
+	      var value = action.value;
+	
+	      return (0, _util.updateValueAtIndex)(state, index, (0, _util.updateValueAtIndex)(state[index], position, value));
+	    default:
+	      return state;
+	  }
+	};
+	
+	var pauseMode = function pauseMode() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.pauseMode : arguments[0];
+	  var action = arguments[1];
+	
+	  return standardReducer("SET_PAUSE_MODE", state, action);
+	};
+	
+	var tempo = function tempo() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.tempo : arguments[0];
+	  var action = arguments[1];
+	
+	  return standardReducer("SET_TEMPO", state, action);
+	};
+	
+	var reverseMode = function reverseMode() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.reverseMode : arguments[0];
+	  var action = arguments[1];
+	
+	  return listReducer("SET_REVERSE_MODE", state, action);
+	};
+	
+	var randomMode = function randomMode() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.randomMode : arguments[0];
+	  var action = arguments[1];
+	
+	  return listReducer("SET_RANDOM_MODE", state, action);
+	};
+	
+	var volume = function volume() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.volume : arguments[0];
+	  var action = arguments[1];
+	
+	  return listReducer("SET_VOLUME", state, action);
+	};
+	
+	var pulseWidth = function pulseWidth() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.pulseWidth : arguments[0];
+	  var action = arguments[1];
+	
+	  return listReducer("SET_PULSE_WIDTH", state, action);
+	};
+	
+	var activePosition = function activePosition() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.activePosition : arguments[0];
+	  var action = arguments[1];
+	
+	  return listReducer("SET_ACTIVE_POSITION", state, action);
+	};
+	
+	var positionValues = function positionValues() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.positionValues : arguments[0];
+	  var action = arguments[1];
+	
+	  return nestedListReducer("SET_POSITION_VALUE", state, action);
+	};
+	
+	var mutedPositions = function mutedPositions() {
+	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.mutedPositions : arguments[0];
+	  var action = arguments[1];
+	
+	  return nestedListReducer("SET_POSITION_MUTE", state, action);
+	};
+	
+	var rootReducer = (0, _redux.combineReducers)({
+	  reverseMode: reverseMode,
+	  randomMode: randomMode,
+	  volume: volume,
+	  pulseWidth: pulseWidth,
+	  activePosition: activePosition,
+	  positionValues: positionValues,
+	  mutedPositions: mutedPositions,
+	  pauseMode: pauseMode,
+	  tempo: tempo
+	});
+	
+	exports.default = rootReducer;
+
+/***/ },
+/* 209 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _generators = __webpack_require__(210);
+	
+	var _generators2 = _interopRequireDefault(_generators);
+	
+	var _util = __webpack_require__(193);
+	
+	var _constants = __webpack_require__(192);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	var generator = _generators2.default[1];
+	var DEFAULT_FADER_VALUES = (0, _util.sampleFunction)(generator.f, generator.min, generator.max, _constants.STEP_COUNT);
+	var DEFAULT_MUTE_VALUES = Array(_constants.STEP_COUNT).fill(false);
+	
+	var defaultState = {
+	  pauseMode: false,
+	  tempo: _constants.INITIAL_TEMPO,
+	  // per manual states
+	  mutedPositions: Array(_constants.MANUAL_COUNT).fill(DEFAULT_MUTE_VALUES),
+	  volume: Array(_constants.MANUAL_COUNT).fill(_constants.INITIAL_VOLUME),
+	  randomMode: Array(_constants.MANUAL_COUNT).fill(false),
+	  reverseMode: Array(_constants.MANUAL_COUNT).fill(false),
+	  pulseWidth: Array(_constants.MANUAL_COUNT).fill(_constants.INITIAL_PULSE_WIDTH),
+	  activePosition: Array(_constants.MANUAL_COUNT).fill(0),
+	  positionValues: Array(_constants.MANUAL_COUNT).fill(DEFAULT_FADER_VALUES)
+	};
+	exports.default = defaultState;
+
+/***/ },
+/* 210 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _random = __webpack_require__(194);
 	
 	var _random2 = _interopRequireDefault(_random);
 	
@@ -42446,209 +42685,7 @@
 	exports.default = generators;
 
 /***/ },
-/* 207 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _redux = __webpack_require__(175);
-	
-	var _index = __webpack_require__(208);
-	
-	var _index2 = _interopRequireDefault(_index);
-	
-	var _defaultState = __webpack_require__(209);
-	
-	var _defaultState2 = _interopRequireDefault(_defaultState);
-	
-	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-	
-	var store = (0, _redux.createStore)(_index2.default, _defaultState2.default);
-	
-	exports.default = store;
-
-/***/ },
-/* 208 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _redux = __webpack_require__(175);
-	
-	var _defaultState = __webpack_require__(209);
-	
-	var _defaultState2 = _interopRequireDefault(_defaultState);
-	
-	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-	
-	var pauseMode = function pauseMode() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.pauseMode : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_PAUSE_MODE":
-	      return action.value;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var reverseMode = function reverseMode() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.reverseMode : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_REVERSE_MODE":
-	      return action.value;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var randomMode = function randomMode() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.randomMode : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_RANDOM_MODE":
-	      return action.value;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var volume = function volume() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.volume : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_VOLUME":
-	      return action.value;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var tempo = function tempo() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.tempo : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_TEMPO":
-	      return action.value;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var pulseWidth = function pulseWidth() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.pulseWidth : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_PULSE_WIDTH":
-	      return action.value;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var activePosition = function activePosition() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.activePosition : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_ACTIVE_POSITION":
-	      return action.value;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var positionValues = function positionValues() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.positionValues : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_POSITION_VALUE":
-	      var newState = state.slice();
-	      var position = action.position;
-	      var value = action.value;
-	
-	      newState[position] = value;
-	      return newState;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var mutedPositions = function mutedPositions() {
-	  var state = arguments.length <= 0 || arguments[0] === undefined ? _defaultState2.default.mutedPositions : arguments[0];
-	  var action = arguments[1];
-	
-	  switch (action.type) {
-	    case "SET_POSITION_MUTE":
-	      var newState = state.slice();
-	      var position = action.position;
-	      var value = action.value;
-	
-	      newState[position] = value;
-	      console.log(newState);
-	      return newState;
-	    default:
-	      return state;
-	  }
-	};
-	
-	var rootReducer = (0, _redux.combineReducers)({
-	  pauseMode: pauseMode,
-	  reverseMode: reverseMode,
-	  randomMode: randomMode,
-	  volume: volume,
-	  tempo: tempo,
-	  pulseWidth: pulseWidth,
-	  activePosition: activePosition,
-	  positionValues: positionValues,
-	  mutedPositions: mutedPositions
-	});
-	
-	exports.default = rootReducer;
-
-/***/ },
-/* 209 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _constants = __webpack_require__(205);
-	
-	var defaultState = {
-	  mutedPositions: Array(_constants.STEP_COUNT).fill(false),
-	  volume: _constants.INITIAL_VOLUME,
-	  randomMode: false,
-	  reverseMode: false,
-	  pauseMode: false,
-	  tempo: _constants.INITIAL_TEMPO,
-	  pulseWidth: _constants.INITIAL_PULSE_WIDTH,
-	  activePosition: 0,
-	  positionValues: _constants.DEFAULT_FADER_VALUES
-	};
-	exports.default = defaultState;
-
-/***/ },
-/* 210 */
+/* 211 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -42657,9 +42694,9 @@
 	  value: true
 	});
 	exports.setPauseMode = setPauseMode;
+	exports.setTempo = setTempo;
 	exports.setReverseMode = setReverseMode;
 	exports.setRandomMode = setRandomMode;
-	exports.setTempo = setTempo;
 	exports.setPulseWidth = setPulseWidth;
 	exports.setVolume = setVolume;
 	exports.setActivePosition = setActivePosition;
@@ -42685,20 +42722,6 @@
 	  };
 	}
 	
-	function setReverseMode(value) {
-	  return {
-	    type: "SET_REVERSE_MODE",
-	    value: value
-	  };
-	}
-	
-	function setRandomMode(value) {
-	  return {
-	    type: "SET_RANDOM_MODE",
-	    value: value
-	  };
-	}
-	
 	function setTempo(value) {
 	  _tone2.default.Transport.bpm.value = value;
 	  return {
@@ -42707,94 +42730,63 @@
 	  };
 	}
 	
-	function setPulseWidth(value) {
+	function setReverseMode(index, value) {
+	  return {
+	    type: "SET_REVERSE_MODE",
+	    index: index,
+	    value: value
+	  };
+	}
+	
+	function setRandomMode(index, value) {
+	  return {
+	    type: "SET_RANDOM_MODE",
+	    index: index,
+	    value: value
+	  };
+	}
+	
+	function setPulseWidth(index, value) {
 	  return {
 	    type: "SET_PULSE_WIDTH",
+	    index: index,
 	    value: value
 	  };
 	}
 	
-	var VOLUME_MULTIPLIER = 10;
-	var relativeVolumeToDecibels = function relativeVolumeToDecibels(volume) {
-	  return VOLUME_MULTIPLIER * Math.log(volume);
-	};
-	
-	function setVolume(value) {
-	  _tone2.default.Master.volume.value = relativeVolumeToDecibels(value);
+	function setVolume(index, value) {
 	  return {
 	    type: "SET_VOLUME",
+	    index: index,
 	    value: value
 	  };
 	}
 	
-	function setActivePosition(value) {
+	function setActivePosition(index, value) {
 	  return {
 	    type: "SET_ACTIVE_POSITION",
+	    index: index,
 	    value: value
 	  };
 	}
 	
-	function setPositionValue(position, value) {
+	function setPositionValue(index, position, value) {
 	  return {
 	    type: "SET_POSITION_VALUE",
+	    index: index,
 	    position: position,
 	    value: Math.min(Math.max(value, 0), 1)
 	  };
 	}
 	
-	function setPositionMute(position, value) {
+	function setPositionMute(index, position, value) {
 	  return {
 	    type: "SET_POSITION_MUTE",
+	    index: index,
 	    position: position,
 	    value: value
 	  };
 	}
-
-/***/ },
-/* 211 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	
-	Object.defineProperty(exports, "__esModule", {
-	  value: true
-	});
-	
-	var _reactRedux = __webpack_require__(168);
-	
-	var _controlBank = __webpack_require__(212);
-	
-	var _controlBank2 = _interopRequireDefault(_controlBank);
-	
-	var _actions = __webpack_require__(210);
-	
-	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-	
-	var mapStateToProps = function mapStateToProps(state) {
-	  return {
-	    tempo: state.tempo,
-	    volume: state.volume,
-	    pulseWidth: state.pulseWidth
-	  };
-	};
-	
-	var mapDispatchToProps = function mapDispatchToProps(dispatch) {
-	  return {
-	    onVolumeChange: function onVolumeChange(value) {
-	      dispatch((0, _actions.setVolume)(value));
-	    },
-	    onPulseWidthChange: function onPulseWidthChange(value) {
-	      dispatch((0, _actions.setPulseWidth)(value));
-	    },
-	    onTempoChange: function onTempoChange(value) {
-	      dispatch((0, _actions.setTempo)(value));
-	    }
-	  };
-	};
-	
-	var ControlBankContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_controlBank2.default);
-	
-	exports.default = ControlBankContainer;
 
 /***/ },
 /* 212 */
@@ -42810,11 +42802,140 @@
 	
 	var React = _interopRequireWildcard(_react);
 	
-	var _fader = __webpack_require__(213);
+	var _controlBankContainer = __webpack_require__(213);
+	
+	var _controlBankContainer2 = _interopRequireDefault(_controlBankContainer);
+	
+	var _muteBankContainer = __webpack_require__(276);
+	
+	var _muteBankContainer2 = _interopRequireDefault(_muteBankContainer);
+	
+	var _faderBankContainer = __webpack_require__(280);
+	
+	var _faderBankContainer2 = _interopRequireDefault(_faderBankContainer);
+	
+	var _transportControlBarContainer = __webpack_require__(282);
+	
+	var _transportControlBarContainer2 = _interopRequireDefault(_transportControlBarContainer);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+	
+	var Manual = function Manual(props) {
+	  var index = props.index;
+	  var style = {
+	    display: "table",
+	    width: "100%"
+	  };
+	  var rowStyle = {
+	    display: "table-row"
+	  };
+	  var faderCellStyle = {
+	    display: "table-cell",
+	    height: 200
+	  };
+	  var cellStyle = {
+	    display: "table-cell"
+	  };
+	
+	  return React.createElement(
+	    "div",
+	    { style: style },
+	    React.createElement(
+	      "div",
+	      { style: rowStyle },
+	      React.createElement(
+	        "div",
+	        { style: faderCellStyle },
+	        React.createElement(_faderBankContainer2.default, { index: index })
+	      ),
+	      React.createElement(
+	        "div",
+	        { style: faderCellStyle },
+	        React.createElement(_controlBankContainer2.default, { index: index })
+	      ),
+	      React.createElement(
+	        "div",
+	        { style: faderCellStyle },
+	        React.createElement(_transportControlBarContainer2.default, { index: index })
+	      )
+	    ),
+	    React.createElement(
+	      "div",
+	      { style: rowStyle },
+	      React.createElement(
+	        "div",
+	        { style: cellStyle },
+	        React.createElement(_muteBankContainer2.default, { index: index })
+	      )
+	    )
+	  );
+	};
+	
+	exports.default = Manual;
+
+/***/ },
+/* 213 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _reactRedux = __webpack_require__(168);
+	
+	var _controlBank = __webpack_require__(214);
+	
+	var _controlBank2 = _interopRequireDefault(_controlBank);
+	
+	var _actions = __webpack_require__(211);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	var mapStateToProps = function mapStateToProps(state, props) {
+	  return {
+	    volume: state.volume[props.index],
+	    pulseWidth: state.pulseWidth[props.index]
+	  };
+	};
+	
+	var mapDispatchToProps = function mapDispatchToProps(dispatch, props) {
+	  return {
+	    onVolumeChange: function onVolumeChange(value) {
+	      dispatch((0, _actions.setVolume)(props.index, value));
+	    },
+	    onPulseWidthChange: function onPulseWidthChange(value) {
+	      dispatch((0, _actions.setPulseWidth)(props.index, value));
+	    }
+	  };
+	};
+	
+	var ControlBankContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_controlBank2.default);
+	
+	exports.default = ControlBankContainer;
+
+/***/ },
+/* 214 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _react = __webpack_require__(1);
+	
+	var React = _interopRequireWildcard(_react);
+	
+	var _fader = __webpack_require__(215);
 	
 	var _fader2 = _interopRequireDefault(_fader);
 	
-	var _constants = __webpack_require__(205);
+	var _constants = __webpack_require__(192);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
@@ -42822,10 +42943,8 @@
 	
 	var ControlBank = function ControlBank(props) {
 	  var volume = props.volume;
-	  var tempo = props.tempo;
 	  var pulseWidth = props.pulseWidth;
 	  var onVolumeChange = props.onVolumeChange;
-	  var onTempoChange = props.onTempoChange;
 	  var onPulseWidthChange = props.onPulseWidthChange;
 	  var style = {
 	    boxSizing: "border-box",
@@ -42837,25 +42956,11 @@
 	    flexDirection: "row"
 	  };
 	  var liStyle = {
-	    width: "33.33333%"
+	    width: "50%"
 	  };
 	  return React.createElement(
 	    "ol",
 	    { style: style },
-	    React.createElement(
-	      "li",
-	      { style: liStyle },
-	      React.createElement(_fader2.default, {
-	        label: "bpm",
-	        value: tempo,
-	        min: _constants.MIN_TEMPO,
-	        max: _constants.MAX_TEMPO,
-	        step: 1,
-	        onChange: function onChange(value) {
-	          onTempoChange(value);
-	        }
-	      })
-	    ),
 	    React.createElement(
 	      "li",
 	      { style: liStyle },
@@ -42888,7 +42993,7 @@
 	exports.default = ControlBank;
 
 /***/ },
-/* 213 */
+/* 215 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -42901,7 +43006,7 @@
 	
 	var React = _interopRequireWildcard(_react);
 	
-	var _rcSlider = __webpack_require__(214);
+	var _rcSlider = __webpack_require__(216);
 	
 	var _rcSlider2 = _interopRequireDefault(_rcSlider);
 	
@@ -42910,16 +43015,19 @@
 	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 	
 	var Fader = function Fader(props) {
+	  var orientation = props.orientation;
 	  var label = props.label;
 	  var value = props.value;
 	  var min = props.min;
 	  var max = props.max;
 	  var step = props.step;
 	  var onChange = props.onChange;
+	  var vertical = orientation !== "horizontal";
 	  var containerStyle = {
+	    alignItems: "center",
 	    textAlign: "center",
 	    display: "flex",
-	    flexDirection: "column",
+	    flexDirection: vertical ? "column" : "row",
 	    height: "100%",
 	    width: "100%"
 	  };
@@ -42951,7 +43059,7 @@
 	        "div",
 	        { style: { margin: "0 auto", flex: "1" } },
 	        React.createElement(_rcSlider2.default, {
-	          vertical: true,
+	          vertical: vertical,
 	          included: false,
 	          value: value,
 	          min: min || 0,
@@ -42968,15 +43076,15 @@
 	exports.default = Fader;
 
 /***/ },
-/* 214 */
+/* 216 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	module.exports = __webpack_require__(215);
+	module.exports = __webpack_require__(217);
 
 /***/ },
-/* 215 */
+/* 217 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -43003,25 +43111,25 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _rcUtil = __webpack_require__(216);
+	var _rcUtil = __webpack_require__(218);
 	
-	var _classnames = __webpack_require__(220);
+	var _classnames = __webpack_require__(222);
 	
 	var _classnames2 = _interopRequireDefault(_classnames);
 	
-	var _Track = __webpack_require__(240);
+	var _Track = __webpack_require__(242);
 	
 	var _Track2 = _interopRequireDefault(_Track);
 	
-	var _Handle = __webpack_require__(241);
+	var _Handle = __webpack_require__(243);
 	
 	var _Handle2 = _interopRequireDefault(_Handle);
 	
-	var _Steps = __webpack_require__(271);
+	var _Steps = __webpack_require__(273);
 	
 	var _Steps2 = _interopRequireDefault(_Steps);
 	
-	var _Marks = __webpack_require__(273);
+	var _Marks = __webpack_require__(275);
 	
 	var _Marks2 = _interopRequireDefault(_Marks);
 	
@@ -43513,33 +43621,33 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 216 */
+/* 218 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	__webpack_require__(217)('require(\'rc-util\') is deprecated, please require(\'rc-util/lib/xx\')');
+	__webpack_require__(219)('require(\'rc-util\') is deprecated, please require(\'rc-util/lib/xx\')');
 	
 	module.exports = {
-	  guid: __webpack_require__(218),
-	  classSet: __webpack_require__(219),
-	  joinClasses: __webpack_require__(221),
-	  KeyCode: __webpack_require__(222),
-	  PureRenderMixin: __webpack_require__(223),
-	  shallowEqual: __webpack_require__(227),
-	  createChainedFunction: __webpack_require__(232),
+	  guid: __webpack_require__(220),
+	  classSet: __webpack_require__(221),
+	  joinClasses: __webpack_require__(223),
+	  KeyCode: __webpack_require__(224),
+	  PureRenderMixin: __webpack_require__(225),
+	  shallowEqual: __webpack_require__(229),
+	  createChainedFunction: __webpack_require__(234),
 	  Dom: {
-	    addEventListener: __webpack_require__(233),
-	    contains: __webpack_require__(237)
+	    addEventListener: __webpack_require__(235),
+	    contains: __webpack_require__(239)
 	  },
 	  Children: {
-	    toArray: __webpack_require__(238),
-	    mapSelf: __webpack_require__(239)
+	    toArray: __webpack_require__(240),
+	    mapSelf: __webpack_require__(241)
 	  }
 	};
 
 /***/ },
-/* 217 */
+/* 219 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {'use strict';
@@ -43554,7 +43662,7 @@
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)))
 
 /***/ },
-/* 218 */
+/* 220 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -43565,19 +43673,19 @@
 	};
 
 /***/ },
-/* 219 */
+/* 221 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var classNames = __webpack_require__(220);
+	var classNames = __webpack_require__(222);
 	
-	__webpack_require__(217)('`rcUtil classSet` is deprecated, use `classNames()` by `require(\'classnames\')` instead');
+	__webpack_require__(219)('`rcUtil classSet` is deprecated, use `classNames()` by `require(\'classnames\')` instead');
 	
 	module.exports = classNames;
 
 /***/ },
-/* 220 */
+/* 222 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
@@ -43631,19 +43739,19 @@
 
 
 /***/ },
-/* 221 */
+/* 223 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var classNames = __webpack_require__(220);
+	var classNames = __webpack_require__(222);
 	
-	__webpack_require__(217)('`rcUtil joinClasses()` is deprecated, use `classNames()` by `require(\'classnames\')` instead');
+	__webpack_require__(219)('`rcUtil joinClasses()` is deprecated, use `classNames()` by `require(\'classnames\')` instead');
 	
 	module.exports = classNames;
 
 /***/ },
-/* 222 */
+/* 224 */
 /***/ function(module, exports) {
 
 	/**
@@ -44168,23 +44276,23 @@
 	module.exports = KeyCode;
 
 /***/ },
-/* 223 */
+/* 225 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	__webpack_require__(217)('`rcUtil PureRenderMixin` is deprecated, use `react-addons-pure-render-mixin` by `require(\'react-addons-pure-render-mixin\')` instead');
+	__webpack_require__(219)('`rcUtil PureRenderMixin` is deprecated, use `react-addons-pure-render-mixin` by `require(\'react-addons-pure-render-mixin\')` instead');
 	
-	module.exports = __webpack_require__(224);
+	module.exports = __webpack_require__(226);
 
 /***/ },
-/* 224 */
+/* 226 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(225);
+	module.exports = __webpack_require__(227);
 
 /***/ },
-/* 225 */
+/* 227 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -44200,7 +44308,7 @@
 	
 	'use strict';
 	
-	var shallowCompare = __webpack_require__(226);
+	var shallowCompare = __webpack_require__(228);
 	
 	/**
 	 * If your React component's render function is "pure", e.g. it will render the
@@ -44237,7 +44345,7 @@
 	module.exports = ReactComponentWithPureRenderMixin;
 
 /***/ },
-/* 226 */
+/* 228 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -44267,12 +44375,12 @@
 	module.exports = shallowCompare;
 
 /***/ },
-/* 227 */
+/* 229 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var fetchKeys = __webpack_require__(228);
+	var fetchKeys = __webpack_require__(230);
 	
 	module.exports = function shallowEqual(objA, objB, compare, compareContext) {
 	
@@ -44320,7 +44428,7 @@
 	};
 
 /***/ },
-/* 228 */
+/* 230 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -44331,9 +44439,9 @@
 	 * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
 	 * Available under MIT license <https://lodash.com/license>
 	 */
-	var getNative = __webpack_require__(229),
-	    isArguments = __webpack_require__(230),
-	    isArray = __webpack_require__(231);
+	var getNative = __webpack_require__(231),
+	    isArguments = __webpack_require__(232),
+	    isArray = __webpack_require__(233);
 	
 	/** Used to detect unsigned integer values. */
 	var reIsUint = /^\d+$/;
@@ -44562,7 +44670,7 @@
 
 
 /***/ },
-/* 229 */
+/* 231 */
 /***/ function(module, exports) {
 
 	/**
@@ -44705,7 +44813,7 @@
 
 
 /***/ },
-/* 230 */
+/* 232 */
 /***/ function(module, exports) {
 
 	/**
@@ -44954,7 +45062,7 @@
 
 
 /***/ },
-/* 231 */
+/* 233 */
 /***/ function(module, exports) {
 
 	/**
@@ -45140,7 +45248,7 @@
 
 
 /***/ },
-/* 232 */
+/* 234 */
 /***/ function(module, exports) {
 
 	/**
@@ -45167,7 +45275,7 @@
 	module.exports = createChainedFunction;
 
 /***/ },
-/* 233 */
+/* 235 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -45179,7 +45287,7 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _addDomEventListener = __webpack_require__(234);
+	var _addDomEventListener = __webpack_require__(236);
 	
 	var _addDomEventListener2 = _interopRequireDefault(_addDomEventListener);
 	
@@ -45198,7 +45306,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 234 */
+/* 236 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -45210,7 +45318,7 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _EventObject = __webpack_require__(235);
+	var _EventObject = __webpack_require__(237);
 	
 	var _EventObject2 = _interopRequireDefault(_EventObject);
 	
@@ -45240,7 +45348,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 235 */
+/* 237 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -45257,7 +45365,7 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _EventBaseObject = __webpack_require__(236);
+	var _EventBaseObject = __webpack_require__(238);
 	
 	var _EventBaseObject2 = _interopRequireDefault(_EventBaseObject);
 	
@@ -45523,7 +45631,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 236 */
+/* 238 */
 /***/ function(module, exports) {
 
 	/**
@@ -45591,7 +45699,7 @@
 	module.exports = exports["default"];
 
 /***/ },
-/* 237 */
+/* 239 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -45609,7 +45717,7 @@
 	};
 
 /***/ },
-/* 238 */
+/* 240 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -45625,7 +45733,7 @@
 	};
 
 /***/ },
-/* 239 */
+/* 241 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -45642,7 +45750,7 @@
 	};
 
 /***/ },
-/* 240 */
+/* 242 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -45681,7 +45789,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 241 */
+/* 243 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -45704,7 +45812,7 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _rcTooltip = __webpack_require__(242);
+	var _rcTooltip = __webpack_require__(244);
 	
 	var _rcTooltip2 = _interopRequireDefault(_rcTooltip);
 	
@@ -45795,15 +45903,15 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 242 */
+/* 244 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	module.exports = __webpack_require__(243);
+	module.exports = __webpack_require__(245);
 
 /***/ },
-/* 243 */
+/* 245 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -45818,9 +45926,9 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _placements = __webpack_require__(244);
+	var _placements = __webpack_require__(246);
 	
-	var _rcTrigger = __webpack_require__(245);
+	var _rcTrigger = __webpack_require__(247);
 	
 	var _rcTrigger2 = _interopRequireDefault(_rcTrigger);
 	
@@ -45938,7 +46046,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 244 */
+/* 246 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -46031,15 +46139,15 @@
 	exports["default"] = placements;
 
 /***/ },
-/* 245 */
+/* 247 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	module.exports = __webpack_require__(246);
+	module.exports = __webpack_require__(248);
 
 /***/ },
-/* 246 */
+/* 248 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -46060,23 +46168,23 @@
 	
 	var _reactDom2 = _interopRequireDefault(_reactDom);
 	
-	var _createChainedFunction = __webpack_require__(232);
+	var _createChainedFunction = __webpack_require__(234);
 	
 	var _createChainedFunction2 = _interopRequireDefault(_createChainedFunction);
 	
-	var _contains = __webpack_require__(237);
+	var _contains = __webpack_require__(239);
 	
 	var _contains2 = _interopRequireDefault(_contains);
 	
-	var _addEventListener = __webpack_require__(233);
+	var _addEventListener = __webpack_require__(235);
 	
 	var _addEventListener2 = _interopRequireDefault(_addEventListener);
 	
-	var _Popup = __webpack_require__(247);
+	var _Popup = __webpack_require__(249);
 	
 	var _Popup2 = _interopRequireDefault(_Popup);
 	
-	var _utils = __webpack_require__(270);
+	var _utils = __webpack_require__(272);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
 	
@@ -46484,7 +46592,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 247 */
+/* 249 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -46503,19 +46611,19 @@
 	
 	var _reactDom2 = _interopRequireDefault(_reactDom);
 	
-	var _rcAlign = __webpack_require__(248);
+	var _rcAlign = __webpack_require__(250);
 	
 	var _rcAlign2 = _interopRequireDefault(_rcAlign);
 	
-	var _rcAnimate = __webpack_require__(259);
+	var _rcAnimate = __webpack_require__(261);
 	
 	var _rcAnimate2 = _interopRequireDefault(_rcAnimate);
 	
-	var _PopupInner = __webpack_require__(268);
+	var _PopupInner = __webpack_require__(270);
 	
 	var _PopupInner2 = _interopRequireDefault(_PopupInner);
 	
-	var _LazyRenderBox = __webpack_require__(269);
+	var _LazyRenderBox = __webpack_require__(271);
 	
 	var _LazyRenderBox2 = _interopRequireDefault(_LazyRenderBox);
 	
@@ -46713,7 +46821,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 248 */
+/* 250 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -46722,7 +46830,7 @@
 	  value: true
 	});
 	
-	var _Align = __webpack_require__(249);
+	var _Align = __webpack_require__(251);
 	
 	var _Align2 = _interopRequireDefault(_Align);
 	
@@ -46733,7 +46841,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 249 */
+/* 251 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -46750,15 +46858,15 @@
 	
 	var _reactDom2 = _interopRequireDefault(_reactDom);
 	
-	var _domAlign = __webpack_require__(250);
+	var _domAlign = __webpack_require__(252);
 	
 	var _domAlign2 = _interopRequireDefault(_domAlign);
 	
-	var _addEventListener = __webpack_require__(233);
+	var _addEventListener = __webpack_require__(235);
 	
 	var _addEventListener2 = _interopRequireDefault(_addEventListener);
 	
-	var _isWindow = __webpack_require__(258);
+	var _isWindow = __webpack_require__(260);
 	
 	var _isWindow2 = _interopRequireDefault(_isWindow);
 	
@@ -46880,7 +46988,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 250 */
+/* 252 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -46896,27 +47004,27 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _utils = __webpack_require__(251);
+	var _utils = __webpack_require__(253);
 	
 	var _utils2 = _interopRequireDefault(_utils);
 	
-	var _getOffsetParent = __webpack_require__(252);
+	var _getOffsetParent = __webpack_require__(254);
 	
 	var _getOffsetParent2 = _interopRequireDefault(_getOffsetParent);
 	
-	var _getVisibleRectForElement = __webpack_require__(253);
+	var _getVisibleRectForElement = __webpack_require__(255);
 	
 	var _getVisibleRectForElement2 = _interopRequireDefault(_getVisibleRectForElement);
 	
-	var _adjustForViewport = __webpack_require__(254);
+	var _adjustForViewport = __webpack_require__(256);
 	
 	var _adjustForViewport2 = _interopRequireDefault(_adjustForViewport);
 	
-	var _getRegion = __webpack_require__(255);
+	var _getRegion = __webpack_require__(257);
 	
 	var _getRegion2 = _interopRequireDefault(_getRegion);
 	
-	var _getElFuturePos = __webpack_require__(256);
+	var _getElFuturePos = __webpack_require__(258);
 	
 	var _getElFuturePos2 = _interopRequireDefault(_getElFuturePos);
 	
@@ -47103,7 +47211,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 251 */
+/* 253 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -47601,7 +47709,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 252 */
+/* 254 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -47612,7 +47720,7 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _utils = __webpack_require__(251);
+	var _utils = __webpack_require__(253);
 	
 	var _utils2 = _interopRequireDefault(_utils);
 	
@@ -47659,7 +47767,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 253 */
+/* 255 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -47670,11 +47778,11 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _utils = __webpack_require__(251);
+	var _utils = __webpack_require__(253);
 	
 	var _utils2 = _interopRequireDefault(_utils);
 	
-	var _getOffsetParent = __webpack_require__(252);
+	var _getOffsetParent = __webpack_require__(254);
 	
 	var _getOffsetParent2 = _interopRequireDefault(_getOffsetParent);
 	
@@ -47740,7 +47848,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 254 */
+/* 256 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -47751,7 +47859,7 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _utils = __webpack_require__(251);
+	var _utils = __webpack_require__(253);
 	
 	var _utils2 = _interopRequireDefault(_utils);
 	
@@ -47800,7 +47908,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 255 */
+/* 257 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -47811,7 +47919,7 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _utils = __webpack_require__(251);
+	var _utils = __webpack_require__(253);
 	
 	var _utils2 = _interopRequireDefault(_utils);
 	
@@ -47841,7 +47949,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 256 */
+/* 258 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -47852,7 +47960,7 @@
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 	
-	var _getAlignOffset = __webpack_require__(257);
+	var _getAlignOffset = __webpack_require__(259);
 	
 	var _getAlignOffset2 = _interopRequireDefault(_getAlignOffset);
 	
@@ -47882,7 +47990,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 257 */
+/* 259 */
 /***/ function(module, exports) {
 
 	/**
@@ -47927,7 +48035,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 258 */
+/* 260 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -47944,16 +48052,16 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 259 */
+/* 261 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
 	// export this package's api
-	module.exports = __webpack_require__(260);
+	module.exports = __webpack_require__(262);
 
 /***/ },
-/* 260 */
+/* 262 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -47966,13 +48074,13 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _ChildrenUtils = __webpack_require__(261);
+	var _ChildrenUtils = __webpack_require__(263);
 	
-	var _AnimateChild = __webpack_require__(262);
+	var _AnimateChild = __webpack_require__(264);
 	
 	var _AnimateChild2 = _interopRequireDefault(_AnimateChild);
 	
-	var _util = __webpack_require__(267);
+	var _util = __webpack_require__(269);
 	
 	var _util2 = _interopRequireDefault(_util);
 	
@@ -48272,7 +48380,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 261 */
+/* 263 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -48390,7 +48498,7 @@
 	}
 
 /***/ },
-/* 262 */
+/* 264 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -48407,11 +48515,11 @@
 	
 	var _reactDom2 = _interopRequireDefault(_reactDom);
 	
-	var _cssAnimation = __webpack_require__(263);
+	var _cssAnimation = __webpack_require__(265);
 	
 	var _cssAnimation2 = _interopRequireDefault(_cssAnimation);
 	
-	var _util = __webpack_require__(267);
+	var _util = __webpack_require__(269);
 	
 	var _util2 = _interopRequireDefault(_util);
 	
@@ -48490,7 +48598,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 263 */
+/* 265 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -48499,11 +48607,11 @@
 	  value: true
 	});
 	
-	var _Event = __webpack_require__(264);
+	var _Event = __webpack_require__(266);
 	
 	var _Event2 = _interopRequireDefault(_Event);
 	
-	var _componentClasses = __webpack_require__(265);
+	var _componentClasses = __webpack_require__(267);
 	
 	var _componentClasses2 = _interopRequireDefault(_componentClasses);
 	
@@ -48680,7 +48788,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 264 */
+/* 266 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -48773,7 +48881,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 265 */
+/* 267 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -48781,9 +48889,9 @@
 	 */
 	
 	try {
-	  var index = __webpack_require__(266);
+	  var index = __webpack_require__(268);
 	} catch (err) {
-	  var index = __webpack_require__(266);
+	  var index = __webpack_require__(268);
 	}
 	
 	/**
@@ -48970,7 +49078,7 @@
 
 
 /***/ },
-/* 266 */
+/* 268 */
 /***/ function(module, exports) {
 
 	module.exports = function(arr, obj){
@@ -48982,7 +49090,7 @@
 	};
 
 /***/ },
-/* 267 */
+/* 269 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -49014,7 +49122,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 268 */
+/* 270 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -49027,7 +49135,7 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _LazyRenderBox = __webpack_require__(269);
+	var _LazyRenderBox = __webpack_require__(271);
 	
 	var _LazyRenderBox2 = _interopRequireDefault(_LazyRenderBox);
 	
@@ -49071,7 +49179,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 269 */
+/* 271 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -49119,7 +49227,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 270 */
+/* 272 */
 /***/ function(module, exports) {
 
 	'use strict';
@@ -49154,7 +49262,7 @@
 	}
 
 /***/ },
-/* 271 */
+/* 273 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -49171,11 +49279,11 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _classnames = __webpack_require__(220);
+	var _classnames = __webpack_require__(222);
 	
 	var _classnames2 = _interopRequireDefault(_classnames);
 	
-	var _warning = __webpack_require__(272);
+	var _warning = __webpack_require__(274);
 	
 	var _warning2 = _interopRequireDefault(_warning);
 	
@@ -49227,7 +49335,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 272 */
+/* 274 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(process) {/**
@@ -49294,7 +49402,7 @@
 	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)))
 
 /***/ },
-/* 273 */
+/* 275 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -49313,7 +49421,7 @@
 	
 	var _react2 = _interopRequireDefault(_react);
 	
-	var _classnames = __webpack_require__(220);
+	var _classnames = __webpack_require__(222);
 	
 	var _classnames2 = _interopRequireDefault(_classnames);
 	
@@ -49377,7 +49485,7 @@
 	module.exports = exports['default'];
 
 /***/ },
-/* 274 */
+/* 276 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -49388,39 +49496,35 @@
 	
 	var _reactRedux = __webpack_require__(168);
 	
-	var _faderBank = __webpack_require__(275);
+	var _muteBank = __webpack_require__(277);
 	
-	var _faderBank2 = _interopRequireDefault(_faderBank);
+	var _muteBank2 = _interopRequireDefault(_muteBank);
 	
-	var _actions = __webpack_require__(210);
+	var _actions = __webpack_require__(211);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
-	var mapStateToProps = function mapStateToProps(state) {
+	var mapStateToProps = function mapStateToProps(state, props) {
 	  return {
-	    activePosition: state.activePosition,
-	    positionValues: state.positionValues,
-	    mutedPositions: state.mutedPositions
+	    activePosition: state.activePosition[props.index],
+	    mutedPositions: state.mutedPositions[props.index]
 	  };
 	};
 	
-	var mapDispatchToProps = function mapDispatchToProps(dispatch) {
+	var mapDispatchToProps = function mapDispatchToProps(dispatch, props) {
 	  return {
-	    onChange: function onChange(position, value) {
-	      dispatch((0, _actions.setPositionValue)(position, value));
-	    },
 	    onMute: function onMute(position, value) {
-	      dispatch((0, _actions.setPositionMute)(position, value));
+	      dispatch((0, _actions.setPositionMute)(props.index, position, value));
 	    }
 	  };
 	};
 	
-	var FaderBankContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_faderBank2.default);
+	var MuteBankContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_muteBank2.default);
 	
-	exports.default = FaderBankContainer;
+	exports.default = MuteBankContainer;
 
 /***/ },
-/* 275 */
+/* 277 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -49433,104 +49537,106 @@
 	
 	var React = _interopRequireWildcard(_react);
 	
-	var _fader = __webpack_require__(213);
+	var _stepGroup = __webpack_require__(278);
 	
-	var _fader2 = _interopRequireDefault(_fader);
+	var _stepGroup2 = _interopRequireDefault(_stepGroup);
 	
-	var _toggleButton = __webpack_require__(276);
+	var _toggleButton = __webpack_require__(279);
 	
 	var _toggleButton2 = _interopRequireDefault(_toggleButton);
-	
-	var _constants = __webpack_require__(205);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
 	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 	
-	var INDICATOR_SIZE = 6;
+	var MuteBank = function MuteBank(props) {
+	  var activePosition = props.activePosition;
+	  var mutedPositions = props.mutedPositions;
+	  var onMute = props.onMute;
 	
-	var loop = function loop(times, fn) {
-	  var result = [];
-	  for (var i = 0; i < times; i++) {
-	    result[i] = fn(i);
-	  }
-	  return result;
+	  return (0, _stepGroup2.default)(function (i) {
+	    var active = i === activePosition,
+	        muted = mutedPositions[i];
+	    return React.createElement(
+	      "div",
+	      { className: "indicator-well", style: { padding: "10px 0", textAlign: "center", width: "100%" } },
+	      React.createElement(_toggleButton2.default, {
+	        active: !!muted,
+	        polarity: !active,
+	        size: 12,
+	        onChange: function onChange(value) {
+	          onMute(i, value);
+	        }
+	      })
+	    );
+	  });
 	};
+	
+	exports.default = MuteBank;
+
+/***/ },
+/* 278 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _react = __webpack_require__(1);
+	
+	var React = _interopRequireWildcard(_react);
+	
+	var _constants = __webpack_require__(192);
+	
+	var _util = __webpack_require__(193);
+	
+	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 	
 	// ex: 4 => "25%"
 	var flexBasis = function flexBasis(count) {
 	  return 100 / count + "%";
 	};
 	
-	var faders = function faders(count, activePosition, positionValues, mutedPositions, _onChange, onMute) {
-	  return loop(count, function (i) {
-	    var portion = flexBasis(count),
-	        active = i === activePosition,
-	        muted = mutedPositions[i],
-	        indicatorStyle = {
-	      backgroundColor: active ? "coral" : "#400",
-	      boxShadow: active ? "0 0 5px coral" : "none",
-	      borderRadius: INDICATOR_SIZE / 2,
-	      display: "inline-block",
-	      height: INDICATOR_SIZE,
-	      width: INDICATOR_SIZE
-	    };
-	    return React.createElement(
-	      "li",
-	      { key: i, style: { flexBasis: portion, width: portion, display: "flex", flexDirection: "column" } },
-	      React.createElement(
-	        "div",
-	        { style: { flex: 1, width: "100%" } },
-	        React.createElement(_fader2.default, {
-	          index: i,
-	          label: i + 1,
-	          value: positionValues[i],
-	          onChange: function onChange(value) {
-	            _onChange(i, value);
-	          }
-	        })
-	      ),
-	      React.createElement(
-	        "div",
-	        { className: "indicator-well", style: { padding: "10px 0", textAlign: "center", width: "100%" } },
-	        React.createElement(_toggleButton2.default, {
-	          active: !!muted,
-	          polarity: !active,
-	          size: 12,
-	          onChange: function onChange(value) {
-	            onMute(i, value);
-	          }
-	        })
-	      )
-	    );
-	  });
-	};
-	
-	var FaderBank = function FaderBank(props) {
-	  var activePosition = props.activePosition;
-	  var positionValues = props.positionValues;
-	  var mutedPositions = props.mutedPositions;
-	  var onChange = props.onChange;
-	  var onMute = props.onMute;
-	  var style = {
+	var StepGroup = function StepGroup(childFn) {
+	  var count = _constants.STEP_COUNT,
+	      portion = flexBasis(count),
+	      style = {
 	    padding: 0,
 	    margin: 0,
 	    listStyle: "none",
 	    display: "flex",
 	    flexDirection: "row",
 	    height: "100%"
+	  },
+	      liStyle = {
+	    flexBasis: portion,
+	    width: portion,
+	    display: "flex",
+	    flexDirection: "column"
 	  };
 	  return React.createElement(
 	    "ol",
 	    { style: style },
-	    faders(_constants.STEP_COUNT, parseInt(activePosition, 10), positionValues, mutedPositions, onChange, onMute)
+	    (0, _util.loop)(count, function (i) {
+	      return React.createElement(
+	        "li",
+	        { key: i, style: liStyle },
+	        React.createElement(
+	          "div",
+	          { style: { flex: 1, width: "100%" } },
+	          childFn(i)
+	        )
+	      );
+	    })
 	  );
 	};
 	
-	exports.default = FaderBank;
+	exports.default = StepGroup;
 
 /***/ },
-/* 276 */
+/* 279 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -49565,9 +49671,11 @@
 	    height: "100%",
 	    width: "100%"
 	  };
+	  var inactiveColor = "#eee";
+	  var activeColor = "hsl(220, 75%, 60%)";
 	  var buttonStyle = {
-	    backgroundColor: lighted ? "coral" : "#222",
-	    boxShadow: lighted ? "0 0 5px coral" : "none",
+	    backgroundColor: lighted ? activeColor : inactiveColor,
+	    boxShadow: lighted ? "0 0 5px " + activeColor : "none",
 	    border: "none",
 	    borderRadius: 3,
 	    cursor: "pointer",
@@ -49601,7 +49709,7 @@
 	exports.default = ToggleButton;
 
 /***/ },
-/* 277 */
+/* 280 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -49612,42 +49720,34 @@
 	
 	var _reactRedux = __webpack_require__(168);
 	
-	var _transportControlBar = __webpack_require__(278);
+	var _faderBank = __webpack_require__(281);
 	
-	var _transportControlBar2 = _interopRequireDefault(_transportControlBar);
+	var _faderBank2 = _interopRequireDefault(_faderBank);
 	
-	var _actions = __webpack_require__(210);
+	var _actions = __webpack_require__(211);
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
-	var mapStateToProps = function mapStateToProps(state) {
+	var mapStateToProps = function mapStateToProps(state, props) {
 	  return {
-	    randomMode: state.randomMode,
-	    pauseMode: state.pauseMode,
-	    reverseMode: state.reverseMode
+	    positionValues: state.positionValues[props.index]
 	  };
 	};
 	
-	var mapDispatchToProps = function mapDispatchToProps(dispatch) {
+	var mapDispatchToProps = function mapDispatchToProps(dispatch, props) {
 	  return {
-	    onRandomModeChange: function onRandomModeChange(value) {
-	      dispatch((0, _actions.setRandomMode)(value));
-	    },
-	    onPauseModeChange: function onPauseModeChange(value) {
-	      dispatch((0, _actions.setPauseMode)(value));
-	    },
-	    onReverseModeChange: function onReverseModeChange(value) {
-	      dispatch((0, _actions.setReverseMode)(value));
+	    onChange: function onChange(position, value) {
+	      dispatch((0, _actions.setPositionValue)(props.index, position, value));
 	    }
 	  };
 	};
 	
-	var TransportControlBarContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_transportControlBar2.default);
+	var FaderBankContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_faderBank2.default);
 	
-	exports.default = TransportControlBarContainer;
+	exports.default = FaderBankContainer;
 
 /***/ },
-/* 278 */
+/* 281 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -49660,7 +49760,93 @@
 	
 	var React = _interopRequireWildcard(_react);
 	
-	var _toggleButton = __webpack_require__(276);
+	var _stepGroup = __webpack_require__(278);
+	
+	var _stepGroup2 = _interopRequireDefault(_stepGroup);
+	
+	var _fader = __webpack_require__(215);
+	
+	var _fader2 = _interopRequireDefault(_fader);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+	
+	var FaderBank = function FaderBank(props) {
+	  var positionValues = props.positionValues;
+	  var _onChange = props.onChange;
+	
+	  return (0, _stepGroup2.default)(function (i) {
+	    return React.createElement(_fader2.default, {
+	      index: i,
+	      label: i + 1,
+	      value: positionValues[i],
+	      onChange: function onChange(value) {
+	        _onChange(i, value);
+	      }
+	    });
+	  });
+	};
+	
+	exports.default = FaderBank;
+
+/***/ },
+/* 282 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _reactRedux = __webpack_require__(168);
+	
+	var _transportControlBar = __webpack_require__(283);
+	
+	var _transportControlBar2 = _interopRequireDefault(_transportControlBar);
+	
+	var _actions = __webpack_require__(211);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	var mapStateToProps = function mapStateToProps(state, props) {
+	  return {
+	    randomMode: state.randomMode[props.index],
+	    reverseMode: state.reverseMode[props.index]
+	  };
+	};
+	
+	var mapDispatchToProps = function mapDispatchToProps(dispatch, props) {
+	  return {
+	    onRandomModeChange: function onRandomModeChange(value) {
+	      dispatch((0, _actions.setRandomMode)(props.index, value));
+	    },
+	    onReverseModeChange: function onReverseModeChange(value) {
+	      dispatch((0, _actions.setReverseMode)(props.index, value));
+	    }
+	  };
+	};
+	
+	var TransportControlBarContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_transportControlBar2.default);
+	
+	exports.default = TransportControlBarContainer;
+
+/***/ },
+/* 283 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _react = __webpack_require__(1);
+	
+	var React = _interopRequireWildcard(_react);
+	
+	var _toggleButton = __webpack_require__(279);
 	
 	var _toggleButton2 = _interopRequireDefault(_toggleButton);
 	
@@ -49671,27 +49857,22 @@
 	var TransportControlBar = function TransportControlBar(props) {
 	  var randomMode = props.randomMode;
 	  var reverseMode = props.reverseMode;
-	  var pauseMode = props.pauseMode;
 	  var onRandomModeChange = props.onRandomModeChange;
 	  var onReverseModeChange = props.onReverseModeChange;
-	  var onPauseModeChange = props.onPauseModeChange;
 	  var style = {
 	    boxSizing: "border-box",
 	    padding: 0,
 	    margin: 0,
 	    listStyle: "none",
 	    display: "flex",
-	    flexDirection: "row"
-	  };
-	  var liStyle = {
-	    width: "33.33333%"
+	    flexDirection: "column"
 	  };
 	  return React.createElement(
 	    "ol",
 	    { style: style },
 	    React.createElement(
 	      "li",
-	      { style: liStyle },
+	      null,
 	      React.createElement(_toggleButton2.default, {
 	        label1: "Random",
 	        active: !!randomMode,
@@ -49702,7 +49883,7 @@
 	    ),
 	    React.createElement(
 	      "li",
-	      { style: liStyle },
+	      null,
 	      React.createElement(_toggleButton2.default, {
 	        label1: "Reverse",
 	        active: !!reverseMode,
@@ -49710,10 +49891,117 @@
 	          onReverseModeChange(active);
 	        }
 	      })
+	    )
+	  );
+	};
+	
+	exports.default = TransportControlBar;
+
+/***/ },
+/* 284 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _reactRedux = __webpack_require__(168);
+	
+	var _globalTransportBar = __webpack_require__(285);
+	
+	var _globalTransportBar2 = _interopRequireDefault(_globalTransportBar);
+	
+	var _actions = __webpack_require__(211);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	var mapStateToProps = function mapStateToProps(state) {
+	  return {
+	    tempo: state.tempo,
+	    pauseMode: state.pauseMode
+	  };
+	};
+	
+	var mapDispatchToProps = function mapDispatchToProps(dispatch) {
+	  return {
+	    onTempoChange: function onTempoChange(value) {
+	      dispatch((0, _actions.setTempo)(value));
+	    },
+	    onPauseModeChange: function onPauseModeChange(value) {
+	      dispatch((0, _actions.setPauseMode)(value));
+	    }
+	  };
+	};
+	
+	var GlobalTransportBarContainer = (0, _reactRedux.connect)(mapStateToProps, mapDispatchToProps)(_globalTransportBar2.default);
+	
+	exports.default = GlobalTransportBarContainer;
+
+/***/ },
+/* 285 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+	
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	
+	var _react = __webpack_require__(1);
+	
+	var React = _interopRequireWildcard(_react);
+	
+	var _fader = __webpack_require__(215);
+	
+	var _fader2 = _interopRequireDefault(_fader);
+	
+	var _toggleButton = __webpack_require__(279);
+	
+	var _toggleButton2 = _interopRequireDefault(_toggleButton);
+	
+	var _constants = __webpack_require__(192);
+	
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+	
+	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+	
+	var GlobalTransportBar = function GlobalTransportBar(props) {
+	  var tempo = props.tempo;
+	  var pauseMode = props.pauseMode;
+	  var onTempoChange = props.onTempoChange;
+	  var onPauseModeChange = props.onPauseModeChange;
+	  var style = {
+	    boxSizing: "border-box",
+	    height: "100%",
+	    padding: "0 0 0 40px",
+	    margin: 0,
+	    listStyle: "none",
+	    display: "flex",
+	    flexDirection: "row"
+	  };
+	  return React.createElement(
+	    "ol",
+	    { style: style },
+	    React.createElement(
+	      "li",
+	      { style: { flex: 1 } },
+	      React.createElement(_fader2.default, {
+	        orientation: "horizontal",
+	        label: "bpm",
+	        value: tempo,
+	        min: _constants.MIN_TEMPO,
+	        max: _constants.MAX_TEMPO,
+	        step: 1,
+	        onChange: function onChange(value) {
+	          onTempoChange(value);
+	        }
+	      })
 	    ),
 	    React.createElement(
 	      "li",
-	      { style: liStyle },
+	      null,
 	      React.createElement(_toggleButton2.default, {
 	        label1: "Pause",
 	        active: !!pauseMode,
@@ -49725,7 +50013,7 @@
 	  );
 	};
 	
-	exports.default = TransportControlBar;
+	exports.default = GlobalTransportBar;
 
 /***/ }
 /******/ ]);
