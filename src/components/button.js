@@ -23,9 +23,10 @@ const Button = (props) => {
         },
         inactiveColor = "#eee",
         activeColor = "hsl(220, 75%, 60%)",
+        color = lighted ? activeColor : inactiveColor,
         buttonStyle = {
-          backgroundColor: lighted ? activeColor : inactiveColor,
-          border: "none",
+          backgroundColor: color,
+          border: `1px solid ${color}`,
           borderRadius: 3,
           cursor: "pointer",
           display: "block",
