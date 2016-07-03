@@ -20,14 +20,14 @@
     "url": "https://github.com/jordanstephens/rp/issues"
   },
   "dependencies": {
-    "react": "^15.0.2",
-    "react-dom": "^15.0.2",
+    "react": "^15.1.0",
+    "react-dom": "^15.1.0",
     "redux": "^3.0.0",
     "react-redux": "^4.0.0",
     "tone": "^0.6.1",
     "lodash.random": "^3.1.5",
     "lodash.sample": "^4.1.1",
-    "rc-slider": "^3.7.1"
+    "rc-slider": "^3.7.2"
   },
   "devDependencies": {
     "babel-loader": "^6.2.4",
