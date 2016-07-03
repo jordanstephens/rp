@@ -2,16 +2,15 @@ import * as React from "react";
 
 const DEFAULT_SIZE = 24;
 
-const ToggleButton = (props) => {
+const Button = (props) => {
   const {
           label1,
-          polarity,
-          active,
           size,
           onChange
         } = props,
-        defaultPolarity = false,
-        lighted = (polarity || defaultPolarity) !== active, // xor
+        polarity = (props.polarity || false),
+        active = (props.active || false),
+        lighted = polarity !== active, // xor
         containerStyle = {
           boxSizing: "border-box",
           cursor: "pointer",
@@ -26,7 +25,6 @@ const ToggleButton = (props) => {
         activeColor = "hsl(220, 75%, 60%)",
         buttonStyle = {
           backgroundColor: lighted ? activeColor : inactiveColor,
-          boxShadow: lighted ? `0 0 5px ${activeColor}` : "none",
           border: "none",
           borderRadius: 3,
           cursor: "pointer",
@@ -51,4 +49,4 @@ const ToggleButton = (props) => {
   );
 };
 
-export default ToggleButton;
+export default Button;

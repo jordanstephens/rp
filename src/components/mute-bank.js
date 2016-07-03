@@ -2,7 +2,7 @@ import * as React from "react";
 
 import StepGroup from "./step-group";
 
-import ToggleButton from "./toggle-button";
+import Button from "./button";
 
 const MuteBank = (props) => {
   const {
@@ -15,7 +15,7 @@ const MuteBank = (props) => {
           muted = mutedPositions[i];
     return (
       <div className="indicator-well" style={{ padding: "10px 0", textAlign: "center", width: "100%" }}>
-        <ToggleButton
+        <Button
           active={!!muted}
           polarity={!active}
           size={12}
