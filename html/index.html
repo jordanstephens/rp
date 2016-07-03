@@ -79,6 +79,10 @@
       .rc-slider-vertical {
         width: 4px;
         height: 100%;
+        /* WORKAROUND for safari failing to set height on child of flex: 1 container
+         * http://stackoverflow.com/questions/15381172/css-flexbox-child-height-100#comment53028351_18866957
+         */
+        min-height: 154px;
       }
       .rc-slider-vertical .rc-slider-track {
         bottom: 0;
