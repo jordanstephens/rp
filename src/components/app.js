@@ -18,18 +18,15 @@ import { setActivePosition, setTempo } from "../actions";
 import Manual from "./manual";
 import TransportBarContainer from "./transport-bar-container";
 
-let voices = [
-  new Tone.MonoSynth({
-    "oscillator": {
-      "type": "triangle"
-    }
-  }).toMaster(),
-  new Tone.MonoSynth({
-    "oscillator": {
-      "type": "square"
-    }
-  }).toMaster()
-];
+const initializeVoices = (waveforms) => {
+  return waveforms.map((type) => {
+    return new Tone.MonoSynth({
+      "oscillator": {
+        "type": type
+      }
+    }).toMaster();
+  });
+};
 
 const initializeTone = () => {
   Tone.Transport.timeSignature = METER;
@@ -42,7 +39,7 @@ const triggerVoice = (voice, pitchPosition, pulseWidth, time) => {
   voice.triggerAttackRelease(frequency, `0:${pulseWidth}:0`, time);
 };
 
-const onToneFrame = (time) => {
+const onToneFrame = (voices, time) => {
   const state = store.getState(),
         tonePosition = Tone.Transport.position,
         timeSignature = Tone.Transport.timeSignature;
@@ -75,9 +72,14 @@ const onToneFrame = (time) => {
 
 export default class App extends React.Component {
   componentDidMount() {
+    const voices = initializeVoices([
+      "triangle",
+      "square"
+    ]);
+
     store.dispatch(setTempo(INITIAL_TEMPO));
     initializeTone();
-    Tone.Transport.scheduleRepeat(onToneFrame, "4n");
+    Tone.Transport.scheduleRepeat((time) => onToneFrame(voices, time), "4n");
     Tone.Transport.start();
   }
 
