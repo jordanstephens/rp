@@ -1,14 +1,14 @@
 import * as React from "react";
 
 import Fader from "./fader";
-import ToggleButton from "./toggle-button";
+import Button from "./button";
 
 import {
   MIN_TEMPO,
   MAX_TEMPO
 } from "../constants";
 
-const GlobalTransportBar = (props) => {
+const TransportBar = (props) => {
   let {
         tempo,
         pauseMode,
@@ -18,15 +18,16 @@ const GlobalTransportBar = (props) => {
       style = {
         boxSizing: "border-box",
         height: "100%",
-        padding: "0 0 0 40px",
+        padding: 0,
         margin: 0,
         listStyle: "none",
         display: "flex",
-        flexDirection: "row"
+        flexDirection: "row",
+        justifyContent: "center"
       };
   return (
     <ol style={style}>
-      <li style={{ flex: 1 }}>
+      <li style={{ flex: 1, maxWidth: 300 }}>
         <Fader
           orientation="horizontal"
           label={"bpm"}
@@ -38,7 +39,7 @@ const GlobalTransportBar = (props) => {
         />
       </li>
       <li>
-        <ToggleButton
+        <Button
           label1={"Pause"}
           active={!!pauseMode}
           onChange={(active) => { onPauseModeChange(active); }}
@@ -48,4 +49,4 @@ const GlobalTransportBar = (props) => {
   );
 };
 
-export default GlobalTransportBar;
+export default TransportBar;

@@ -16,7 +16,7 @@ import store from "../store";
 import { setActivePosition, setTempo } from "../actions";
 
 import Manual from "./manual";
-import GlobalTransportBarContainer from "./global-transport-bar-container";
+import TransportBarContainer from "./transport-bar-container";
 
 let voices = [
   new Tone.MonoSynth({
@@ -113,7 +113,7 @@ export default class App extends React.Component {
             ))}
           </div>
           <div>
-            <GlobalTransportBarContainer />
+            <TransportBarContainer />
           </div>
         </div>
       </div>

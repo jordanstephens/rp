@@ -1,6 +1,6 @@
 import { connect } from "react-redux";
 
-import GlobalTransportBar from "./global-transport-bar";
+import TransportBar from "./transport-bar";
 
 import {
   setTempo,
@@ -21,9 +21,9 @@ const mapDispatchToProps = (dispatch) => ({
   }
 });
 
-const GlobalTransportBarContainer = connect(
+const TransportBarContainer = connect(
   mapStateToProps,
   mapDispatchToProps
-)(GlobalTransportBar);
+)(TransportBar);
 
-export default GlobalTransportBarContainer;
+export default TransportBarContainer;
