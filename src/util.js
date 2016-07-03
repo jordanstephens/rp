@@ -55,8 +55,7 @@ export const getActivePosition = (tonePosition, timeSignature, randomMode, rever
     const position = getPositionComponents(tonePosition),
           nextPosition = position.bar * timeSignature + position.beat;
     if (reverseMode) {
-      const prevPosition = nextPosition - 2; // -1 will stay on the same beat, so we need -2 to actually play in reverse
-      return prevPosition < 0 ? STEP_COUNT + prevPosition : prevPosition;
+      return STEP_COUNT - 1 - nextPosition;
     } else {
       return nextPosition;
     }
