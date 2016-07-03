@@ -1,18 +1,23 @@
 import { connect } from "react-redux";
 
-import TransportControlBar from "./transport-control-bar";
+import ControlBar from "./control-bar";
 
 import {
+  setWaveform,
   setRandomMode,
   setReverseMode
 } from "../actions";
 
 const mapStateToProps = (state, props) => ({
+  waveform: state.waveform[props.index],
   randomMode: state.randomMode[props.index],
   reverseMode: state.reverseMode[props.index]
 });
 
 const mapDispatchToProps = (dispatch, props) => ({
+  onWaveformChange(value) {
+    dispatch(setWaveform(props.index, value));
+  },
   onRandomModeChange(value) {
     dispatch(setRandomMode(props.index, value));
   },
@@ -21,9 +26,9 @@ const mapDispatchToProps = (dispatch, props) => ({
   }
 });
 
-const TransportControlBarContainer = connect(
+const ControlBarContainer = connect(
   mapStateToProps,
   mapDispatchToProps
-)(TransportControlBar);
+)(ControlBar);
 
-export default TransportControlBarContainer;
+export default ControlBarContainer;
