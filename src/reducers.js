@@ -44,6 +44,10 @@ const tempo = (state = defaultState.tempo, action) => {
   return standardReducer("SET_TEMPO", state, action);
 };
 
+const waveform = (state = defaultState.waveform, action) => {
+  return listReducer("SET_WAVEFORM", state, action);
+};
+
 const reverseMode = (state = defaultState.reverseMode, action) => {
   return listReducer("SET_REVERSE_MODE", state, action);
 };
@@ -73,6 +77,7 @@ const mutedPositions = (state = defaultState.mutedPositions, action) => {
 };
 
 const rootReducer = combineReducers({
+  waveform,
   reverseMode,
   randomMode,
   volume,

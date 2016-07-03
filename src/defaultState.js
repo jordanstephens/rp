@@ -22,6 +22,7 @@ const defaultState = {
   pauseMode: false,
   tempo: INITIAL_TEMPO,
   // per manual states
+  waveform: ["triangle", "square"],
   mutedPositions: Array(MANUAL_COUNT).fill(DEFAULT_MUTE_VALUES),
   volume: Array(MANUAL_COUNT).fill(INITIAL_VOLUME),
   randomMode: Array(MANUAL_COUNT).fill(false),

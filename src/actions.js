@@ -21,6 +21,13 @@ export function setTempo(value) {
   };
 }
 
+export function setWaveform(index, value) {
+  return {
+    type: "SET_WAVEFORM",
+    index,
+    value
+  };
+}
 export function setReverseMode(index, value) {
   return {
     type: "SET_REVERSE_MODE",

@@ -4,6 +4,13 @@ export const STEP_COUNT = 8;
 export const METER = 4;
 export const BARS = STEP_COUNT / METER;
 
+export const WAVEFORMS = [
+  "sine",
+  "triangle",
+  "square",
+  "sawtooth"
+];
+
 // measured in dBs
 export const INITIAL_VOLUME = 0.5;
 export const MAX_VOLUME = 1.0;

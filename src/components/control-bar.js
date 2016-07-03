@@ -23,7 +23,9 @@ const ControlBar = (props) => {
         onReverseModeChange
       } = props,
       waveformLabel = (
-        <svg style={{ height: 10, width: 10, fill: "#3a3a3a" }}><use xlinkHref="#{waveform}"></use></svg>
+        <svg viewBox="0 0 32 32" style={{ width: 24, height: 24 }}>
+          <use xlinkHref={`#${waveform}`}></use>
+        </svg>
       ),
       style = {
         boxSizing: "border-box",

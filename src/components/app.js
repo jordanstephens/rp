@@ -45,7 +45,8 @@ const onToneFrame = (voices, time) => {
         timeSignature = Tone.Transport.timeSignature;
 
   voices.forEach((voice, i) => {
-    const pulseWidth = state.pulseWidth[i],
+    const waveform = state.waveform[i],
+          pulseWidth = state.pulseWidth[i],
           reverseMode = state.reverseMode[i],
           randomMode = state.randomMode[i],
           mutedPositions = state.mutedPositions[i],
@@ -60,6 +61,10 @@ const onToneFrame = (voices, time) => {
           isMuted = mutedPositions[activePosition],
           pitchPosition = pitchPositions[activePosition];
 
+    if (voice.oscillator.type !== waveform) {
+      voice.oscillator.type = waveform;
+    }
+    
     voice.volume.value = relativeVolumeToDecibels(volume);
 
     if (!isMuted) {
