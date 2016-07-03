@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <title>rp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
       html {
         color: goldenrod;
@@ -78,6 +79,10 @@
       .rc-slider-vertical {
         width: 4px;
         height: 100%;
+        /* WORKAROUND for safari failing to set height on child of flex: 1 container
+         * http://stackoverflow.com/questions/15381172/css-flexbox-child-height-100#comment53028351_18866957
+         */
+        min-height: 154px;
       }
       .rc-slider-vertical .rc-slider-track {
         bottom: 0;
@@ -91,6 +96,22 @@
     </style>
   </head>
   <body>
+    <svg style="display: none;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <defs>
+        <symbol id="square">
+          <polyline fill="none" stroke="goldenrod" stroke-width="3" points="0.5 5.5 0.5 26.5 16 26.5 16 6 31.5 6 31.5 27"></polyline>
+        </symbol>
+        <symbol id="sawtooth">
+          <polyline fill="none" stroke="goldenrod" stroke-width="3" points="0.5 6 0.5 26.3096951 31.5 6.52654134 31.5 26.9207254"></polyline>
+        </symbol>
+        <symbol id="triangle">
+          <polyline fill="none" stroke="goldenrod" stroke-width="3" points="0.5 16 8 26 24 6 31.5 16"></polyline>
+        </symbol>
+        <symbol id="sine">
+          <path fill="none" stroke="goldenrod" stroke-width="3" d="M0.509765625,16 C0.509765625,29.3061964 16,29.7051345 16,16.0000001 C16,2.29486575 31.3147658,2.67953895 31.5,15.9999997"></path>
+        </symbol>
+      </defs>
+    </svg>
     <div id="app-container"></div>
     <script src="bundle.js" charset="utf-8"></script>
   </body>
