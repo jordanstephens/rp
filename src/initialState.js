@@ -18,7 +18,7 @@ const DEFAULT_FADER_VALUES = sampleFunction(
 );
 const DEFAULT_MUTE_VALUES = Array(STEP_COUNT).fill(false);
 
-const defaultState = {
+const initialState = {
   pauseMode: false,
   tempo: INITIAL_TEMPO,
   // per manual states
@@ -31,4 +31,4 @@ const defaultState = {
   activePosition: Array(MANUAL_COUNT).fill(0),
   positionValues: Array(MANUAL_COUNT).fill(DEFAULT_FADER_VALUES)
 };
-export default defaultState;
+export default initialState;

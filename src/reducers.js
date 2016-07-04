@@ -1,7 +1,7 @@
 import { combineReducers } from "redux";
 
 import { updateValueAtIndex } from "./util";
-import defaultState from "./defaultState";
+import initialState from "./initialState";
 
 const standardReducer = (type, state, action) => {
   switch (action.type) {
@@ -36,43 +36,43 @@ const nestedListReducer = (type, state, action) => {
   }
 };
 
-const pauseMode = (state = defaultState.pauseMode, action) => {
+const pauseMode = (state = initialState.pauseMode, action) => {
   return standardReducer("SET_PAUSE_MODE", state, action);
 };
 
-const tempo = (state = defaultState.tempo, action) => {
+const tempo = (state = initialState.tempo, action) => {
   return standardReducer("SET_TEMPO", state, action);
 };
 
-const waveform = (state = defaultState.waveform, action) => {
+const waveform = (state = initialState.waveform, action) => {
   return listReducer("SET_WAVEFORM", state, action);
 };
 
-const reverseMode = (state = defaultState.reverseMode, action) => {
+const reverseMode = (state = initialState.reverseMode, action) => {
   return listReducer("SET_REVERSE_MODE", state, action);
 };
 
-const randomMode = (state = defaultState.randomMode, action) => {
+const randomMode = (state = initialState.randomMode, action) => {
   return listReducer("SET_RANDOM_MODE", state, action);
 };
 
-const volume = (state = defaultState.volume, action) => {
+const volume = (state = initialState.volume, action) => {
   return listReducer("SET_VOLUME", state, action);
 };
 
-const pulseWidth = (state = defaultState.pulseWidth, action) => {
+const pulseWidth = (state = initialState.pulseWidth, action) => {
   return listReducer("SET_PULSE_WIDTH", state, action);
 };
 
-const activePosition = (state = defaultState.activePosition, action) => {
+const activePosition = (state = initialState.activePosition, action) => {
   return listReducer("SET_ACTIVE_POSITION", state, action);
 };
 
-const positionValues = (state = defaultState.positionValues, action) => {
+const positionValues = (state = initialState.positionValues, action) => {
   return nestedListReducer("SET_POSITION_VALUE", state, action);
 };
 
-const mutedPositions = (state = defaultState.mutedPositions, action) => {
+const mutedPositions = (state = initialState.mutedPositions, action) => {
   return nestedListReducer("SET_POSITION_MUTE", state, action);
 };
 
