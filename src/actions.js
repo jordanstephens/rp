@@ -40,7 +40,7 @@ export function setPulseWidth(index, value) {
   return {
     type: "SET_PULSE_WIDTH",
     index,
-    value
+    value: Math.min(Math.max(value, 0), 1)
   };
 }
 
@@ -48,7 +48,7 @@ export function setVolume(index, value) {
   return {
     type: "SET_VOLUME",
     index,
-    value
+    value: Math.min(Math.max(value, 0), 1)
   };
 }
 
