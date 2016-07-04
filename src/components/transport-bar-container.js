@@ -1,5 +1,7 @@
 import { connect } from "react-redux";
 
+import Tone from "tone";
+
 import TransportBar from "./transport-bar";
 
 import {
@@ -14,9 +16,17 @@ const mapStateToProps = (state) => ({
 
 const mapDispatchToProps = (dispatch) => ({
   onTempoChange(value) {
+    Tone.Transport.bpm.value = value;
+
     dispatch(setTempo(value));
   },
   onPauseModeChange(value) {
+    if (value === true) {
+      Tone.Transport.pause();
+    } else {
+      Tone.Transport.start();
+    }
+
     dispatch(setPauseMode(value));
   }
 });

@@ -1,12 +1,5 @@
-import Tone from "tone";
 
 export function setPauseMode(value) {
-  if (value === true) {
-    Tone.Transport.pause();
-  } else {
-    Tone.Transport.start();
-  }
-
   return {
     type: "SET_PAUSE_MODE",
     value
@@ -14,7 +7,6 @@ export function setPauseMode(value) {
 }
 
 export function setTempo(value) {
-  Tone.Transport.bpm.value = value;
   return {
     type: "SET_TEMPO",
     value
